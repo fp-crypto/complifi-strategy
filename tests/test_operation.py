@@ -56,9 +56,9 @@ def test_profitable_harvest(
     # TODO: Add some code before harvest #2 to simulate earning yield
 
     print("mining ...")
-    days = 0.1
-    chain.sleep(3600 * 24 * days)
-    chain.mine(269 * 24 * days)
+    hours = 1
+    chain.sleep(3600 * hours)
+    chain.mine(269 * hours)
 
     before_pps = vault.pricePerShare()
 

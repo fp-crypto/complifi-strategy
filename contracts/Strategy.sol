@@ -92,6 +92,10 @@ contract Strategy is BaseStrategy {
         return "StrategyComplifiUSDC";
     }
 
+    function setPath(address[] calldata _path) public onlyGovernance {
+        path = _path;
+    }
+
     function estimatedTotalAssets() public view override returns (uint256) {
         uint256 tokens =
             complementToken().balanceOf(address(this)).add(
