@@ -45,6 +45,11 @@ interface ILiquidityMining {
     function claim() external;
 
     function poolPidByAddress(address _address) external view returns (uint256);
+
+    function getPendingReward(uint256 _pid, address _user)
+        external
+        view
+        returns (uint256 total, uint256 unlocked);
 }
 
 contract Strategy is BaseStrategy {
@@ -93,22 +98,29 @@ contract Strategy is BaseStrategy {
                 primaryToken().balanceOf(address(this))
             );
         (uint256 depositedPrimary, ) =
-            liquidityMining.userPoolInfo(
-                liquidityMining.poolPidByAddress(address(primaryToken())),
-                address(this)
-            );
+            liquidityMining.userPoolInfo(primaryTokenPid(), address(this));
         (uint256 depositedComplement, ) =
-            liquidityMining.userPoolInfo(
-                liquidityMining.poolPidByAddress(address(complementToken())),
-                address(this)
-            );
+            liquidityMining.userPoolInfo(complementTokenPid(), address(this));
 
         uint256 depositedTokens = depositedPrimary.add(depositedComplement);
 
         return want.balanceOf(address(this)).add(tokens).add(depositedTokens);
     }
 
-    function pendingRewards() public view returns (uint256, uint256) {}
+    function pendingRewards()
+        public
+        view
+        returns (uint256 _total, uint256 _unlocked)
+    {
+        (uint256 primaryTotal, uint256 primaryUnlocked) =
+            liquidityMining.getPendingReward(primaryTokenPid(), address(this));
+
+        (uint256 complementTotal, uint256 complementUnlocked) =
+            liquidityMining.getPendingReward(complementTokenPid(), address(this));
+
+        _total = primaryTotal.add(complementTotal);
+        _unlocked = primaryUnlocked.add(complementUnlocked);
+    }
 
     function primaryToken() private view returns (IERC20) {
         return IERC20(tokenVault.primaryToken());
@@ -116,6 +128,14 @@ contract Strategy is BaseStrategy {
 
     function complementToken() private view returns (IERC20) {
         return IERC20(tokenVault.complementToken());
+    }
+
+    function primaryTokenPid() private view returns (uint256) {
+        return liquidityMining.poolPidByAddress(address(primaryToken()));
+    }
+
+    function complementTokenPid() private view returns (uint256) {
+        return liquidityMining.poolPidByAddress(address(complementToken()));
     }
 
     function prepareReturn(uint256 _debtOutstanding)
@@ -176,12 +196,12 @@ contract Strategy is BaseStrategy {
             tokenVault.mint(wantBalance);
 
             liquidityMining.deposit(
-                liquidityMining.poolPidByAddress(address(primaryToken())),
+                primaryTokenPid(),
                 primaryToken().balanceOf(address(this))
             );
 
             liquidityMining.deposit(
-                liquidityMining.poolPidByAddress(address(complementToken())),
+                complementTokenPid(),
                 complementToken().balanceOf(address(this))
             );
         }
@@ -197,15 +217,10 @@ contract Strategy is BaseStrategy {
             uint256 amountToFree = _amountNeeded.sub(totalAssets);
 
             (uint256 depositedPrimary, ) =
-                liquidityMining.userPoolInfo(
-                    liquidityMining.poolPidByAddress(address(primaryToken())),
-                    address(this)
-                );
+                liquidityMining.userPoolInfo(primaryTokenPid(), address(this));
             (uint256 depositedComplement, ) =
                 liquidityMining.userPoolInfo(
-                    liquidityMining.poolPidByAddress(
-                        address(complementToken())
-                    ),
+                    complementTokenPid(),
                     address(this)
                 );
             uint256 deposited = depositedPrimary.add(depositedComplement);
@@ -215,13 +230,11 @@ contract Strategy is BaseStrategy {
             if (deposited > 0) {
                 liquidityMining.claim();
                 liquidityMining.withdraw(
-                    liquidityMining.poolPidByAddress(address(primaryToken())),
+                    primaryTokenPid(),
                     amountToFree.div(2)
                 );
                 liquidityMining.withdraw(
-                    liquidityMining.poolPidByAddress(
-                        address(complementToken())
-                    ),
+                    complementTokenPid(),
                     amountToFree.div(2)
                 );
 
