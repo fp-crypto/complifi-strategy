@@ -116,7 +116,10 @@ contract Strategy is BaseStrategy {
             liquidityMining.getPendingReward(primaryTokenPid(), address(this));
 
         (uint256 complementTotal, uint256 complementUnlocked) =
-            liquidityMining.getPendingReward(complementTokenPid(), address(this));
+            liquidityMining.getPendingReward(
+                complementTokenPid(),
+                address(this)
+            );
 
         _total = primaryTotal.add(complementTotal);
         _unlocked = primaryUnlocked.add(complementUnlocked);
@@ -238,7 +241,16 @@ contract Strategy is BaseStrategy {
                     amountToFree.div(2)
                 );
 
-                tokenVault.refund(amountToFree.div(2));
+                uint256 primBalance = primaryToken().balanceOf(address(this));
+                uint256 compBalance =
+                    complementToken().balanceOf(address(this));
+
+                // We should always have balanced amounts, but better safe than sorry
+                if (primBalance > 0 && compBalance > 0) {
+                    (primBalance >= compBalance)
+                        ? tokenVault.refund(primBalance)
+                        : tokenVault.refund(compBalance);
+                }
             }
 
             _liquidatedAmount = want.balanceOf(address(this));
@@ -256,6 +268,15 @@ contract Strategy is BaseStrategy {
 
     function emergencyWithdrawal(uint256 _pid) external onlyGovernance {
         liquidityMining.withdrawEmergency(_pid);
+
+        uint256 primBalance = primaryToken().balanceOf(address(this));
+        uint256 compBalance = complementToken().balanceOf(address(this));
+
+        if (primBalance > 0 && compBalance > 0) {
+            (primBalance >= compBalance)
+                ? tokenVault.refund(primBalance)
+                : tokenVault.refund(compBalance);
+        }
     }
 
     //sell all function
