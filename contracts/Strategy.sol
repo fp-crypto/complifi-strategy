@@ -18,7 +18,7 @@ import {
 } from "@openzeppelin/contracts/token/ERC20/SafeERC20.sol";
 import "@openzeppelin/contracts/math/Math.sol";
 import "./interfaces/UniswapInterfaces/IUniswapV2Router02.sol";
-import { IVault as IComplifiVault } from "./interfaces/complifi/IVault.sol";
+import {IVault as IComplifiVault} from "./interfaces/complifi/IVault.sol";
 
 interface ILiquidityMining {
     function deposit(uint256 _pid, uint256 _amount) external;
@@ -196,6 +196,7 @@ contract Strategy is BaseStrategy {
         uint256 wantBalance = want.balanceOf(address(this));
 
         if (wantBalance > 0) {
+            // When we mint we get 1 primary and 1 complement token for every 2 wants
             tokenVault.mint(wantBalance);
 
             liquidityMining.deposit(
@@ -248,8 +249,12 @@ contract Strategy is BaseStrategy {
                 // We should always have balanced amounts, but better safe than sorry
                 if (primBalance > 0 && compBalance > 0) {
                     (primBalance >= compBalance)
-                        ? tokenVault.refund(primBalance)
-                        : tokenVault.refund(compBalance);
+                        ? tokenVault.refund(
+                            Math.min(primBalance, amountToFree.div(2))
+                        )
+                        : tokenVault.refund(
+                            Math.min(compBalance, amountToFree.div(2))
+                        );
                 }
             }
 

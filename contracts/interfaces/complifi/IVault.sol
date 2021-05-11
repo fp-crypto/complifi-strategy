@@ -7,7 +7,7 @@ import "./IDerivativeSpecification.sol";
 /// @title Derivative implementation Vault
 /// @notice A smart contract that references derivative specification and enables users to mint and redeem the derivative
 interface IVault {
-    enum State { Created, Live, Settled }
+    enum State {Created, Live, Settled}
 
     /// @notice start of live period
     function liveTime() external view returns (uint256);
