@@ -76,6 +76,8 @@ contract Strategy is BaseStrategy {
             address(liquidityMining),
             type(uint256).max
         );
+
+        comfi.safeApprove(router, type(uint256).max);
     }
 
     // ******** OVERRIDE THESE METHODS FROM BASE CONTRACT ************
@@ -106,9 +108,7 @@ contract Strategy is BaseStrategy {
         return want.balanceOf(address(this)).add(tokens).add(depositedTokens);
     }
 
-    function pendingRewards() public view returns (uint256, uint256) {
-
-    }
+    function pendingRewards() public view returns (uint256, uint256) {}
 
     function primaryToken() private view returns (IERC20) {
         return IERC20(tokenVault.primaryToken());
@@ -128,7 +128,6 @@ contract Strategy is BaseStrategy {
         )
     {
         liquidityMining.claim();
-
         _sell();
 
         uint256 assets = estimatedTotalAssets();
@@ -171,17 +170,21 @@ contract Strategy is BaseStrategy {
             return;
         }
 
-        tokenVault.mint(want.balanceOf(address(this)));
+        uint256 wantBalance = want.balanceOf(address(this));
 
-        liquidityMining.deposit(
-            liquidityMining.poolPidByAddress(address(primaryToken())),
-            primaryToken().balanceOf(address(this))
-        );
+        if (wantBalance > 0) {
+            tokenVault.mint(wantBalance);
 
-        liquidityMining.deposit(
-            liquidityMining.poolPidByAddress(address(complementToken())),
-            complementToken().balanceOf(address(this))
-        );
+            liquidityMining.deposit(
+                liquidityMining.poolPidByAddress(address(primaryToken())),
+                primaryToken().balanceOf(address(this))
+            );
+
+            liquidityMining.deposit(
+                liquidityMining.poolPidByAddress(address(complementToken())),
+                complementToken().balanceOf(address(this))
+            );
+        }
     }
 
     function liquidatePosition(uint256 _amountNeeded)
@@ -210,6 +213,7 @@ contract Strategy is BaseStrategy {
                 amountToFree = deposited;
             }
             if (deposited > 0) {
+                liquidityMining.claim();
                 liquidityMining.withdraw(
                     liquidityMining.poolPidByAddress(address(primaryToken())),
                     amountToFree.div(2)
