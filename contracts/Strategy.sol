@@ -66,10 +66,16 @@ contract Strategy is BaseStrategy {
     address[] public path;
 
     constructor(address _vault) public BaseStrategy(_vault) {
-        // You can set these parameters on deployment to whatever you want
-        // maxReportDelay = 6300;
-        // profitFactor = 100;
-        // debtThreshold = 0;
+        want.safeApprove(address(tokenVault), type(uint256).max);
+
+        primaryToken().safeApprove(address(tokenVault), type(uint256).max);
+        complementToken().safeApprove(address(tokenVault), type(uint256).max);
+
+        primaryToken().safeApprove(address(liquidityMining), type(uint256).max);
+        complementToken().safeApprove(
+            address(liquidityMining),
+            type(uint256).max
+        );
     }
 
     // ******** OVERRIDE THESE METHODS FROM BASE CONTRACT ************
@@ -84,7 +90,24 @@ contract Strategy is BaseStrategy {
             complementToken().balanceOf(address(this)).add(
                 primaryToken().balanceOf(address(this))
             );
-        return want.balanceOf(address(this)).add(tokens);
+        (uint256 depositedPrimary, ) =
+            liquidityMining.userPoolInfo(
+                liquidityMining.poolPidByAddress(address(primaryToken())),
+                address(this)
+            );
+        (uint256 depositedComplement, ) =
+            liquidityMining.userPoolInfo(
+                liquidityMining.poolPidByAddress(address(complementToken())),
+                address(this)
+            );
+
+        uint256 depositedTokens = depositedPrimary.add(depositedComplement);
+
+        return want.balanceOf(address(this)).add(tokens).add(depositedTokens);
+    }
+
+    function pendingRewards() public view returns (uint256, uint256) {
+
     }
 
     function primaryToken() private view returns (IERC20) {
@@ -148,22 +171,13 @@ contract Strategy is BaseStrategy {
             return;
         }
 
-        uint256 wantBalance = want.balanceOf(address(this));
         tokenVault.mint(want.balanceOf(address(this)));
 
-        primaryToken().safeApprove(
-            address(liquidityMining),
-            primaryToken().balanceOf(address(this))
-        );
         liquidityMining.deposit(
             liquidityMining.poolPidByAddress(address(primaryToken())),
             primaryToken().balanceOf(address(this))
         );
 
-        complementToken().safeApprove(
-            address(liquidityMining),
-            complementToken().balanceOf(address(this))
-        );
         liquidityMining.deposit(
             liquidityMining.poolPidByAddress(address(complementToken())),
             complementToken().balanceOf(address(this))
@@ -206,8 +220,7 @@ contract Strategy is BaseStrategy {
                     ),
                     amountToFree.div(2)
                 );
-                primaryToken().safeApprove(address(tokenVault), amountToFree.div(2));
-                complementToken().safeApprove(address(tokenVault), amountToFree.div(2));
+
                 tokenVault.refund(amountToFree.div(2));
             }
 

@@ -55,14 +55,18 @@ def test_profitable_harvest(
 
     # TODO: Add some code before harvest #2 to simulate earning yield
 
+    print("mining ...")
+    chain.sleep(3600 * 1)
+    chain.mine(250)
+
     # Harvest 2: Realize profit
     strategy.harvest()
     chain.sleep(3600 * 6)  # 6 hrs needed for profits to unlock
     chain.mine(1)
     profit = token.balanceOf(vault.address)  # Profits go to vault
     # TODO: Uncomment the lines below
-    # assert token.balanceOf(strategy) + profit > amount
-    # assert vault.pricePerShare() > before_pps
+    assert token.balanceOf(strategy) + profit > amount
+    assert vault.pricePerShare() > before_pps
 
 
 def test_change_debt(
