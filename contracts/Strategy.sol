@@ -19,38 +19,7 @@ import {
 import "@openzeppelin/contracts/math/Math.sol";
 import "./interfaces/UniswapInterfaces/IUniswapV2Router02.sol";
 import {IVault as IComplifiVault} from "./interfaces/complifi/IVault.sol";
-
-interface ILiquidityMining {
-    function deposit(uint256 _pid, uint256 _amount) external;
-
-    function withdraw(uint256 _pid, uint256 _amount) external;
-
-    function withdrawEmergency(uint256 _pid) external;
-
-    function poolInfo(uint256 _pid)
-        external
-        view
-        returns (
-            address,
-            uint256,
-            uint256,
-            uint256
-        );
-
-    function userPoolInfo(uint256 _pid, address user)
-        external
-        view
-        returns (uint256, uint256);
-
-    function claim() external;
-
-    function poolPidByAddress(address _address) external view returns (uint256);
-
-    function getPendingReward(uint256 _pid, address _user)
-        external
-        view
-        returns (uint256 total, uint256 unlocked);
-}
+import {ILiquidityMining} from "./interfaces/complifi/ILiquidityMining.sol";
 
 contract Strategy is BaseStrategy {
     using SafeERC20 for IERC20;
@@ -281,15 +250,16 @@ contract Strategy is BaseStrategy {
         _sell();
     }
 
-    function emergencyWithdrawal(uint256 _pid) external onlyGovernance {
-        liquidityMining.withdrawEmergency(_pid);
+    function emergencyWithdrawal() external onlyGovernance {
+        liquidityMining.withdrawEmergency(primaryTokenPid());
+        liquidityMining.withdrawEmergency(complementTokenPid());
 
         uint256 primBalance = primaryToken().balanceOf(address(this));
         uint256 compBalance = complementToken().balanceOf(address(this));
 
         // Refund will get back want
         if (primBalance > 0 && compBalance > 0) {
-            (primBalance >= compBalance)
+            (primBalance <= compBalance)
                 ? tokenVault.refund(primBalance)
                 : tokenVault.refund(compBalance);
         }

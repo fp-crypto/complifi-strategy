@@ -53,10 +53,92 @@ def test_profitable_harvest(
     strategy.harvest()
     assert pytest.approx(strategy.estimatedTotalAssets(), rel=RELATIVE_APPROX) == amount
 
+    print("mining ...")
+    hours = 1
+    chain.sleep(3600 * hours)
+    chain.mine(269 * hours)
+
+    before_pps = vault.pricePerShare()
+    print(strategy.pendingRewards())
+
+    # Harvest 2: Realize profit
+    strategy.harvest()
+    print(strategy.pendingRewards())
+    chain.sleep(3600 * 6)  # 6 hrs needed for profits to unlock
+    chain.mine(1)
+    profit = token.balanceOf(vault.address)  # Profits go to vault
+    # TODO: Uncomment the lines below
+    assert strategy.estimatedTotalAssets() + profit > amount
+    assert vault.pricePerShare() > before_pps
+    print(vault.pricePerShare())
+    print(strategy.pendingRewards())
+
+
+def test_profitable_with_withdraw(
+    accounts, token, vault, strategy, user, strategist, amount, RELATIVE_APPROX, chain
+):
+    # Deposit to the vault
+    token.approve(vault.address, amount, {"from": user})
+    vault.deposit(amount, {"from": user})
+    assert token.balanceOf(vault.address) == amount
+
+    # Harvest 1: Send funds through the strategy
+    strategy.harvest()
+    assert pytest.approx(strategy.estimatedTotalAssets(), rel=RELATIVE_APPROX) == amount
+
     # TODO: Add some code before harvest #2 to simulate earning yield
 
     print("mining ...")
     hours = 1
+    chain.sleep(3600 * hours)
+    chain.mine(269 * hours)
+
+    vault.withdraw(amount / 2, {"from": user})
+
+    before_pps = vault.pricePerShare()
+
+    # Harvest 2: Realize profit
+    strategy.harvest()
+    chain.sleep(3600 * 6)  # 6 hrs needed for profits to unlock
+    chain.mine(1)
+    profit = token.balanceOf(vault.address)  # Profits go to vault
+    # TODO: Uncomment the lines below
+    assert strategy.estimatedTotalAssets() + profit > amount / 2
+    assert vault.pricePerShare() > before_pps
+    print(vault.pricePerShare())
+
+
+@pytest.mark.skip(reason="long test")
+def test_long_runtime(
+    accounts,
+    token,
+    vault,
+    strategy,
+    user,
+    strategist,
+    amount,
+    RELATIVE_APPROX,
+    chain,
+    comfi,
+    comfi_whale,
+    liquitiy_mining,
+):
+    # Make sure LM is stocked
+    comfi.transfer(liquitiy_mining, 100_000 * 10 ** 18, {"from": comfi_whale})
+
+    # Deposit to the vault
+    token.approve(vault.address, amount, {"from": user})
+    vault.deposit(amount, {"from": user})
+    assert token.balanceOf(vault.address) == amount
+
+    # Harvest 1: Send funds through the strategy
+    strategy.harvest()
+    assert pytest.approx(strategy.estimatedTotalAssets(), rel=RELATIVE_APPROX) == amount
+
+    # TODO: Add some code before harvest #2 to simulate earning yield
+
+    print("mining ...")
+    hours = 24 * 15
     chain.sleep(3600 * hours)
     chain.mine(269 * hours)
 

@@ -85,6 +85,21 @@ def strategy(strategist, keeper, vault, Strategy, gov):
     yield strategy
 
 
+@pytest.fixture
+def comfi(accounts):
+    yield Contract("0x752Efadc0a7E05ad1BCCcDA22c141D01a75EF1e4")
+
+
+@pytest.fixture
+def comfi_whale(accounts):
+    yield accounts.at("0x0FB21490A878AA2Af08117C96F897095797bD91C")
+
+
+@pytest.fixture
+def liquitiy_mining(accounts):
+    yield accounts.at("0x8a5827Ad1f28d3f397B748CE89895e437b8ef90D")
+
+
 @pytest.fixture(scope="session")
 def RELATIVE_APPROX():
     yield 1e-5
