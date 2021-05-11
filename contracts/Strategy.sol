@@ -61,7 +61,8 @@ contract Strategy is BaseStrategy {
         ILiquidityMining(address(0x8a5827Ad1f28d3f397B748CE89895e437b8ef90D));
     IComplifiVault private constant tokenVault =
         IComplifiVault(address(0xea5b9650f6c47D112Bb008132a86388B594Eb849));
-    IERC20 comfi = IERC20(address(0x752Efadc0a7E05ad1BCCcDA22c141D01a75EF1e4));
+    IERC20 private constant comfi =
+        IERC20(address(0x752Efadc0a7E05ad1BCCcDA22c141D01a75EF1e4));
 
     address private constant router =
         address(0x7a250d5630B4cF539739dF2C5dAcb4c659F2488D);
@@ -97,7 +98,7 @@ contract Strategy is BaseStrategy {
     }
 
     function estimatedTotalAssets() public view override returns (uint256) {
-        uint256 tokens =
+        uint256 looseTokens =
             complementToken().balanceOf(address(this)).add(
                 primaryToken().balanceOf(address(this))
             );
@@ -108,7 +109,8 @@ contract Strategy is BaseStrategy {
 
         uint256 depositedTokens = depositedPrimary.add(depositedComplement);
 
-        return want.balanceOf(address(this)).add(tokens).add(depositedTokens);
+        return
+            want.balanceOf(address(this)).add(looseTokens).add(depositedTokens);
     }
 
     function pendingRewards()
@@ -203,11 +205,11 @@ contract Strategy is BaseStrategy {
             // When we mint we get 1 primary and 1 complement token for every 2 wants
             tokenVault.mint(wantBalance);
 
+            // Deposit the minted primary and complement tokens in the masterchefy thing
             liquidityMining.deposit(
                 primaryTokenPid(),
                 primaryToken().balanceOf(address(this))
             );
-
             liquidityMining.deposit(
                 complementTokenPid(),
                 complementToken().balanceOf(address(this))
@@ -236,7 +238,10 @@ contract Strategy is BaseStrategy {
                 amountToFree = deposited;
             }
             if (deposited > 0) {
+                // Claim rewards before withdrawing
                 liquidityMining.claim();
+                // We claim half the amounted needed from each pool
+                // As 1 primary and 1 complement can withdraw 2 want
                 liquidityMining.withdraw(
                     primaryTokenPid(),
                     amountToFree.div(2)
@@ -250,15 +255,18 @@ contract Strategy is BaseStrategy {
                 uint256 compBalance =
                     complementToken().balanceOf(address(this));
 
-                // We should always have balanced amounts, but better safe than sorry
+                // We should always have balanced amounts of primary and complement
+                // but better safe than sorry
                 if (primBalance > 0 && compBalance > 0) {
-                    (primBalance >= compBalance)
-                        ? tokenVault.refund(
+                    if (primBalance <= compBalance) {
+                        tokenVault.refund(
                             Math.min(primBalance, amountToFree.div(2))
-                        )
-                        : tokenVault.refund(
+                        );
+                    } else {
+                        tokenVault.refund(
                             Math.min(compBalance, amountToFree.div(2))
                         );
+                    }
                 }
             }
 
@@ -267,8 +275,6 @@ contract Strategy is BaseStrategy {
             _liquidatedAmount = _amountNeeded;
         }
     }
-
-    // NOTE: Can override `tendTrigger` and `harvestTrigger` if necessary
 
     function prepareMigration(address _newStrategy) internal override {
         liquidatePosition(uint256(-1)); //withdraw all. does not matter if we ask for too much
@@ -281,6 +287,7 @@ contract Strategy is BaseStrategy {
         uint256 primBalance = primaryToken().balanceOf(address(this));
         uint256 compBalance = complementToken().balanceOf(address(this));
 
+        // Refund will get back want
         if (primBalance > 0 && compBalance > 0) {
             (primBalance >= compBalance)
                 ? tokenVault.refund(primBalance)
