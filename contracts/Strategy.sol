@@ -17,6 +17,7 @@ import {
     Address
 } from "@openzeppelin/contracts/token/ERC20/SafeERC20.sol";
 import "@openzeppelin/contracts/math/Math.sol";
+
 import "./interfaces/UniswapInterfaces/IUniswapV2Router02.sol";
 import {IVault as IComplifiVault} from "./interfaces/complifi/IVault.sol";
 import {ILiquidityMining} from "./interfaces/complifi/ILiquidityMining.sol";
@@ -26,11 +27,13 @@ contract Strategy is BaseStrategy {
     using Address for address;
     using SafeMath for uint256;
 
-    ILiquidityMining private constant liquidityMining =
-        ILiquidityMining(address(0x8a5827Ad1f28d3f397B748CE89895e437b8ef90D));
-    IComplifiVault private constant tokenVault =
+    IComplifiVault public tokenVault =
         IComplifiVault(address(0xea5b9650f6c47D112Bb008132a86388B594Eb849));
-    IERC20 private constant comfi =
+
+    ILiquidityMining public constant liquidityMining =
+        ILiquidityMining(address(0x8a5827Ad1f28d3f397B748CE89895e437b8ef90D));
+
+    IERC20 public constant comfi =
         IERC20(address(0x752Efadc0a7E05ad1BCCcDA22c141D01a75EF1e4));
 
     address private constant router =
@@ -42,7 +45,6 @@ contract Strategy is BaseStrategy {
 
     constructor(address _vault) public BaseStrategy(_vault) {
         want.safeApprove(address(tokenVault), type(uint256).max);
-
         primaryToken().safeApprove(address(tokenVault), type(uint256).max);
         complementToken().safeApprove(address(tokenVault), type(uint256).max);
 
@@ -245,9 +247,39 @@ contract Strategy is BaseStrategy {
         }
     }
 
+    function migrateTokenVault(address _newTokenVault) external onlyGovernance {
+        require(
+            IComplifiVault(_newTokenVault).state() == IComplifiVault.State.Live
+        );
+
+        liquidatePosition(uint256(-1));
+
+        // Revoke approvals for the old token vault
+        want.safeApprove(address(tokenVault), type(uint256).min);
+        primaryToken().safeApprove(address(tokenVault), type(uint256).min);
+        complementToken().safeApprove(address(tokenVault), type(uint256).min);
+        primaryToken().safeApprove(address(liquidityMining), type(uint256).min);
+        complementToken().safeApprove(
+            address(liquidityMining),
+            type(uint256).min
+        );
+
+        tokenVault = IComplifiVault(_newTokenVault);
+
+        // Approve spend of relevant tokens on the new token vault
+        want.safeApprove(address(tokenVault), type(uint256).max);
+        primaryToken().safeApprove(address(tokenVault), type(uint256).max);
+        complementToken().safeApprove(address(tokenVault), type(uint256).max);
+        primaryToken().safeApprove(address(liquidityMining), type(uint256).max);
+        complementToken().safeApprove(
+            address(liquidityMining),
+            type(uint256).max
+        );
+    }
+
     function prepareMigration(address _newStrategy) internal override {
         liquidatePosition(uint256(-1)); //withdraw all. does not matter if we ask for too much
-        _sell();
+        comfi.safeTransfer(_newStrategy, comfi.balanceOf(address(this)));
     }
 
     function emergencyWithdrawal() external onlyGovernance {
