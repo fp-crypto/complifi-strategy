@@ -57,10 +57,15 @@ interface ILiquidityMining {
         view
         returns (uint256 claimable);
 
+    struct UserPoolInfo {
+        uint256 amount;
+        uint256 accruedReward;
+    }
+
     function userPoolInfo(uint256, address)
         external
         view
-        returns (uint256 amount, uint256 accruedReward);
+        returns (UserPoolInfo memory);
 
     function withdrawEmergency(uint256 _pid) external;
 }

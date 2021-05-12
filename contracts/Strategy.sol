@@ -44,20 +44,9 @@ contract Strategy is BaseStrategy {
     address[] public path;
 
     constructor(address _vault) public BaseStrategy(_vault) {
-        want.safeApprove(address(tokenVault), type(uint256).max);
-        primaryToken().safeApprove(address(tokenVault), type(uint256).max);
-        complementToken().safeApprove(address(tokenVault), type(uint256).max);
-
-        primaryToken().safeApprove(address(liquidityMining), type(uint256).max);
-        complementToken().safeApprove(
-            address(liquidityMining),
-            type(uint256).max
-        );
-
         comfi.safeApprove(router, type(uint256).max);
+        _approveSpend(type(uint256).max);
     }
-
-    // ******** OVERRIDE THESE METHODS FROM BASE CONTRACT ************
 
     function name() external view override returns (string memory) {
         // Add your own name here, suggestion e.g. "StrategyCreamYFI"
@@ -73,12 +62,16 @@ contract Strategy is BaseStrategy {
             complementToken().balanceOf(address(this)).add(
                 primaryToken().balanceOf(address(this))
             );
-        (uint256 depositedPrimary, ) =
-            liquidityMining.userPoolInfo(primaryTokenPid(), address(this));
-        (uint256 depositedComplement, ) =
-            liquidityMining.userPoolInfo(complementTokenPid(), address(this));
+        uint256 primDeposited =
+            liquidityMining
+                .userPoolInfo(primaryTokenPid(), address(this))
+                .amount;
+        uint256 compDeposited =
+            liquidityMining
+                .userPoolInfo(complementTokenPid(), address(this))
+                .amount;
 
-        uint256 depositedTokens = depositedPrimary.add(depositedComplement);
+        uint256 depositedTokens = primDeposited.add(compDeposited);
 
         return
             want.balanceOf(address(this)).add(looseTokens).add(depositedTokens);
@@ -197,14 +190,19 @@ contract Strategy is BaseStrategy {
         if (_amountNeeded > totalAssets) {
             uint256 amountToFree = _amountNeeded.sub(totalAssets);
 
-            (uint256 depositedPrimary, ) =
-                liquidityMining.userPoolInfo(primaryTokenPid(), address(this));
-            (uint256 depositedComplement, ) =
-                liquidityMining.userPoolInfo(
-                    complementTokenPid(),
-                    address(this)
-                );
-            uint256 deposited = depositedPrimary.add(depositedComplement);
+            uint256 primTokenPid = primaryTokenPid();
+            uint256 compTokenPid = complementTokenPid();
+
+            uint256 primDeposited =
+                liquidityMining
+                    .userPoolInfo(primTokenPid, address(this))
+                    .amount;
+            uint256 compDesposited =
+                liquidityMining
+                    .userPoolInfo(compTokenPid, address(this))
+                    .amount;
+            uint256 deposited = primDeposited.add(compDesposited);
+
             if (deposited < amountToFree) {
                 amountToFree = deposited;
             }
@@ -213,14 +211,8 @@ contract Strategy is BaseStrategy {
                 liquidityMining.claim();
                 // We claim half the amounted needed from each pool
                 // As 1 primary and 1 complement can withdraw 2 want
-                liquidityMining.withdraw(
-                    primaryTokenPid(),
-                    amountToFree.div(2)
-                );
-                liquidityMining.withdraw(
-                    complementTokenPid(),
-                    amountToFree.div(2)
-                );
+                liquidityMining.withdraw(primTokenPid, amountToFree.div(2));
+                liquidityMining.withdraw(compTokenPid, amountToFree.div(2));
 
                 uint256 primBalance = primaryToken().balanceOf(address(this));
                 uint256 compBalance =
@@ -248,37 +240,19 @@ contract Strategy is BaseStrategy {
     }
 
     function migrateTokenVault(address _newTokenVault) external onlyGovernance {
-        require(
-            IComplifiVault(_newTokenVault).state() == IComplifiVault.State.Live
-        );
-
-        liquidatePosition(uint256(-1));
+        liquidatePosition(type(uint256).max);
 
         // Revoke approvals for the old token vault
-        want.safeApprove(address(tokenVault), type(uint256).min);
-        primaryToken().safeApprove(address(tokenVault), type(uint256).min);
-        complementToken().safeApprove(address(tokenVault), type(uint256).min);
-        primaryToken().safeApprove(address(liquidityMining), type(uint256).min);
-        complementToken().safeApprove(
-            address(liquidityMining),
-            type(uint256).min
-        );
+        _approveSpend(0);
 
         tokenVault = IComplifiVault(_newTokenVault);
 
         // Approve spend of relevant tokens on the new token vault
-        want.safeApprove(address(tokenVault), type(uint256).max);
-        primaryToken().safeApprove(address(tokenVault), type(uint256).max);
-        complementToken().safeApprove(address(tokenVault), type(uint256).max);
-        primaryToken().safeApprove(address(liquidityMining), type(uint256).max);
-        complementToken().safeApprove(
-            address(liquidityMining),
-            type(uint256).max
-        );
+        _approveSpend(type(uint256).max);
     }
 
     function prepareMigration(address _newStrategy) internal override {
-        liquidatePosition(uint256(-1)); //withdraw all. does not matter if we ask for too much
+        liquidatePosition(type(uint256).max); //withdraw all. does not matter if we ask for too much
         comfi.safeTransfer(_newStrategy, comfi.balanceOf(address(this)));
     }
 
@@ -295,6 +269,18 @@ contract Strategy is BaseStrategy {
                 ? tokenVault.refund(primBalance)
                 : tokenVault.refund(compBalance);
         }
+    }
+
+    function _approveSpend(uint256 _amount) internal {
+        want.safeApprove(address(tokenVault), _amount);
+
+        IERC20 primToken = primaryToken();
+        IERC20 compToken = complementToken();
+
+        primToken.safeApprove(address(tokenVault), _amount);
+        compToken.safeApprove(address(tokenVault), _amount);
+        primToken.safeApprove(address(liquidityMining), _amount);
+        compToken.safeApprove(address(liquidityMining), _amount);
     }
 
     //sell all function
