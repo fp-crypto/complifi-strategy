@@ -8,7 +8,8 @@ pragma experimental ABIEncoderV2;
 // These are the core Yearn libraries
 import {
     BaseStrategy,
-    StrategyParams
+    StrategyParams,
+    VaultAPI
 } from "@yearnvaults/contracts/BaseStrategy.sol";
 import {
     SafeERC20,
@@ -27,14 +28,9 @@ contract Strategy is BaseStrategy {
     using Address for address;
     using SafeMath for uint256;
 
-    IComplifiVault public tokenVault =
-        IComplifiVault(address(0xea5b9650f6c47D112Bb008132a86388B594Eb849));
-
-    ILiquidityMining public constant liquidityMining =
-        ILiquidityMining(address(0x8a5827Ad1f28d3f397B748CE89895e437b8ef90D));
-
-    IERC20 public constant comfi =
-        IERC20(address(0x752Efadc0a7E05ad1BCCcDA22c141D01a75EF1e4));
+    IComplifiVault public tokenVault;
+    ILiquidityMining public liquidityMining;
+    IERC20 public comfi;
 
     address private constant router =
         address(0x7a250d5630B4cF539739dF2C5dAcb4c659F2488D);
@@ -43,7 +39,66 @@ contract Strategy is BaseStrategy {
 
     address[] public path;
 
-    constructor(address _vault) public BaseStrategy(_vault) {
+    constructor(
+        address _vault,
+        address _tokenVault,
+        address _liquidityMining,
+        address _comfi
+    ) public BaseStrategy(_vault) {
+        _initializeStrat(_tokenVault, _liquidityMining, _comfi);
+    }
+
+    function initialize(
+        address _vault,
+        address _strategist,
+        address _rewards,
+        address _keeper,
+        address _tokenVault,
+        address _liquidityMining,
+        address _comfi
+    ) external {
+        //note: initialise can only be called once. in _initialize in BaseStrategy we have: require(address(want) == address(0), "Strategy already initialized");
+        _initialize(_vault, _strategist, _rewards, _keeper);
+        _initializeStrat(_tokenVault, _liquidityMining, _comfi);
+    }
+
+    function _initialize(
+        address _vault,
+        address _strategist,
+        address _rewards,
+        address _keeper
+    ) internal {
+        require(address(want) == address(0), "Strategy already initialized");
+
+        vault = VaultAPI(_vault);
+        want = IERC20(vault.token());
+        want.safeApprove(_vault, uint256(-1)); // Give Vault unlimited access (might save gas)
+        strategist = _strategist;
+        rewards = _rewards;
+        keeper = _keeper;
+
+        // initialize variables
+        maxReportDelay = 86400;
+        profitFactor = 100;
+        debtThreshold = 0;
+
+        vault.approve(rewards, uint256(-1)); // Allow rewards to be pulled
+    }
+
+    function _initializeStrat(
+        address _tokenVault,
+        address _liquidityMining,
+        address _comfi
+    ) internal {
+        require(
+            address(tokenVault) == address(0),
+            "Strategy already initialized"
+        );
+
+        tokenVault = IComplifiVault(_tokenVault);
+        liquidityMining = ILiquidityMining(_liquidityMining);
+        comfi = IERC20(_comfi);
+
         comfi.safeApprove(router, type(uint256).max);
         _approveSpend(type(uint256).max);
     }

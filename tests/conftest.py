@@ -78,15 +78,23 @@ def vault(pm, gov, rewards, guardian, management, token):
 
 
 @pytest.fixture
-def strategy(strategist, keeper, vault, Strategy, gov):
-    strategy = strategist.deploy(Strategy, vault)
+def strategy(
+    strategist, keeper, vault, Strategy, gov, token_vault, liquitiy_mining, comfi
+):
+    strategy = strategist.deploy(Strategy, vault, token_vault, liquitiy_mining, comfi)
     strategy.setKeeper(keeper)
     vault.addStrategy(strategy, 10_000, 0, 1_000, {"from": gov})
     yield strategy
 
 
 @pytest.fixture
-def comfi(accounts):
+def token_vault():
+    # 5x eth 1 june 2021 expiry
+    yield Contract("0xea5b9650f6c47D112Bb008132a86388B594Eb849")
+
+
+@pytest.fixture
+def comfi():
     yield Contract("0x752Efadc0a7E05ad1BCCcDA22c141D01a75EF1e4")
 
 
@@ -96,8 +104,8 @@ def comfi_whale(accounts):
 
 
 @pytest.fixture
-def liquitiy_mining(accounts):
-    yield accounts.at("0x8a5827Ad1f28d3f397B748CE89895e437b8ef90D")
+def liquitiy_mining():
+    yield Contract("0x8a5827Ad1f28d3f397B748CE89895e437b8ef90D")
 
 
 @pytest.fixture(scope="session")
