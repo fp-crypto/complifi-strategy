@@ -37,8 +37,6 @@ contract Strategy is BaseStrategy {
     address private constant weth =
         address(0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2);
 
-    address[] public path;
-
     event Cloned(address indexed clone);
 
     constructor(
@@ -165,10 +163,6 @@ contract Strategy is BaseStrategy {
     function name() external view override returns (string memory) {
         // Add your own name here, suggestion e.g. "StrategyCreamYFI"
         return "StrategyComplifiUSDC";
-    }
-
-    function setPath(address[] calldata _path) public onlyGovernance {
-        path = _path;
     }
 
     function estimatedTotalAssets() public view override returns (uint256) {
@@ -370,7 +364,7 @@ contract Strategy is BaseStrategy {
         comfi.safeTransfer(_newStrategy, comfi.balanceOf(address(this)));
     }
 
-    function emergencyWithdrawal() external onlyGovernance {
+    function emergencyWithdrawal() external onlyAuthorized {
         liquidityMining.withdrawEmergency(primaryTokenPid());
         liquidityMining.withdrawEmergency(complementTokenPid());
 
@@ -404,34 +398,19 @@ contract Strategy is BaseStrategy {
             return;
         }
 
-        if (path.length == 0) {
-            address[] memory tpath;
-            if (address(want) != weth) {
-                tpath = new address[](3);
-                tpath[2] = address(want);
-            } else {
-                tpath = new address[](2);
-            }
+        address[] memory tpath = new address[](3);
 
-            tpath[0] = address(comfi);
-            tpath[1] = weth;
+        tpath[0] = address(comfi);
+        tpath[1] = weth;
+        tpath[2] = address(want);
 
-            IUniswapV2Router02(router).swapExactTokensForTokens(
-                rewardBal,
-                uint256(0),
-                tpath,
-                address(this),
-                now
-            );
-        } else {
-            IUniswapV2Router02(router).swapExactTokensForTokens(
-                rewardBal,
-                uint256(0),
-                path,
-                address(this),
-                now
-            );
-        }
+        IUniswapV2Router02(router).swapExactTokensForTokens(
+            rewardBal,
+            uint256(0),
+            tpath,
+            address(this),
+            now
+        );
     }
 
     function protectedTokens()
