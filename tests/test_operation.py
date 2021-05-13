@@ -4,8 +4,34 @@ import pytest
 
 
 def test_operation(
-    accounts, token, vault, strategy, user, strategist, amount, RELATIVE_APPROX
+    accounts,
+    token,
+    vault,
+    strategy,
+    user,
+    strategist,
+    amount,
+    rewards,
+    keeper,
+    token_vault,
+    liquitiy_mining,
+    comfi,
+    gov,
+    RELATIVE_APPROX,
 ):
+    # Shouldn't be able to call initialize again
+    with brownie.reverts():
+        strategy.initialize(
+            vault,
+            strategist,
+            rewards,
+            keeper,
+            token_vault,
+            liquitiy_mining,
+            comfi,
+            {"from": gov},
+        )
+
     # Deposit to the vault
     user_balance_before = token.balanceOf(user)
     token.approve(vault.address, amount, {"from": user})
