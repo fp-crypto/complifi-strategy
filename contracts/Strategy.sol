@@ -23,12 +23,17 @@ import "./interfaces/UniswapInterfaces/IUniswapV2Router02.sol";
 import {IVault as IComplifiVault} from "./interfaces/complifi/IVault.sol";
 import {ILiquidityMining} from "./interfaces/complifi/ILiquidityMining.sol";
 
+interface IComplifiVaultRegistry {
+    function getAllVaults() external view returns (address[] memory);
+}
+
 contract Strategy is BaseStrategy {
     using SafeERC20 for IERC20;
     using Address for address;
     using SafeMath for uint256;
 
     IComplifiVault public tokenVault;
+    IComplifiVaultRegistry public tokenVaultRegistry;
     ILiquidityMining public liquidityMining;
     IERC20 public comfi;
 
@@ -42,10 +47,16 @@ contract Strategy is BaseStrategy {
     constructor(
         address _vault,
         address _tokenVault,
+        address _tokenVaultRegistry,
         address _liquidityMining,
         address _comfi
     ) public BaseStrategy(_vault) {
-        _initializeStrat(_tokenVault, _liquidityMining, _comfi);
+        _initializeStrat(
+            _tokenVault,
+            _tokenVaultRegistry,
+            _liquidityMining,
+            _comfi
+        );
     }
 
     function initialize(
@@ -54,12 +65,18 @@ contract Strategy is BaseStrategy {
         address _rewards,
         address _keeper,
         address _tokenVault,
+        address _tokenVaultRegistry,
         address _liquidityMining,
         address _comfi
     ) external {
         //note: initialise can only be called once. in _initialize in BaseStrategy we have: require(address(want) == address(0), "Strategy already initialized");
         _initialize(_vault, _strategist, _rewards, _keeper);
-        _initializeStrat(_tokenVault, _liquidityMining, _comfi);
+        _initializeStrat(
+            _tokenVault,
+            _tokenVaultRegistry,
+            _liquidityMining,
+            _comfi
+        );
     }
 
     function _initialize(
@@ -87,12 +104,19 @@ contract Strategy is BaseStrategy {
 
     function _initializeStrat(
         address _tokenVault,
+        address _tokenVaultRegistry,
         address _liquidityMining,
         address _comfi
     ) internal {
         require(
             address(tokenVault) == address(0),
             "Strategy already initialized"
+        );
+
+        tokenVaultRegistry = IComplifiVaultRegistry(_tokenVaultRegistry);
+        require(
+            _isRegisteredTokenVault(_tokenVault),
+            "Complifi token vault not registered"
         );
 
         tokenVault = IComplifiVault(_tokenVault);
@@ -106,6 +130,7 @@ contract Strategy is BaseStrategy {
     function cloneStrategy(
         address _vault,
         address _tokenVault,
+        address _tokenVaultRegistry,
         address _liquidityMining,
         address _comfi
     ) external returns (address newStrategy) {
@@ -115,6 +140,7 @@ contract Strategy is BaseStrategy {
             msg.sender,
             msg.sender,
             _tokenVault,
+            _tokenVaultRegistry,
             _liquidityMining,
             _comfi
         );
@@ -126,6 +152,7 @@ contract Strategy is BaseStrategy {
         address _rewards,
         address _keeper,
         address _tokenVault,
+        address _tokenVaultRegistry,
         address _liquidityMining,
         address _comfi
     ) external returns (address newStrategy) {
@@ -153,6 +180,7 @@ contract Strategy is BaseStrategy {
             _rewards,
             _keeper,
             _tokenVault,
+            _tokenVaultRegistry,
             _liquidityMining,
             _comfi
         );
@@ -348,6 +376,11 @@ contract Strategy is BaseStrategy {
     }
 
     function migrateTokenVault(address _newTokenVault) external onlyGovernance {
+        require(
+            _isRegisteredTokenVault(_newTokenVault),
+            "Complifi token vault not registered"
+        );
+
         liquidatePosition(type(uint256).max);
 
         // Revoke approvals for the old token vault
@@ -411,6 +444,21 @@ contract Strategy is BaseStrategy {
             address(this),
             now
         );
+    }
+
+    function _isRegisteredTokenVault(address _tokenVault)
+        internal
+        returns (bool)
+    {
+        // Just return true if we don't have a registry set
+        if (address(tokenVaultRegistry) == address(0x0)) return true;
+
+        address[] memory vaults = tokenVaultRegistry.getAllVaults();
+        for (uint256 i = 0; i < vaults.length; i++) {
+            if (vaults[i] == _tokenVault) return true;
+        }
+
+        return false;
     }
 
     function protectedTokens()

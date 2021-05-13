@@ -79,9 +79,19 @@ def vault(pm, gov, rewards, guardian, management, token):
 
 @pytest.fixture
 def strategy(
-    strategist, keeper, vault, Strategy, gov, token_vault, liquitiy_mining, comfi
+    strategist,
+    keeper,
+    vault,
+    Strategy,
+    gov,
+    token_vault,
+    token_vault_registry,
+    liquitiy_mining,
+    comfi,
 ):
-    strategy = strategist.deploy(Strategy, vault, token_vault, liquitiy_mining, comfi)
+    strategy = strategist.deploy(
+        Strategy, vault, token_vault, token_vault_registry, liquitiy_mining, comfi
+    )
     strategy.setKeeper(keeper)
     vault.addStrategy(strategy, 10_000, 0, 1_000, {"from": gov})
     yield strategy
@@ -91,6 +101,11 @@ def strategy(
 def token_vault():
     # 5x eth 1 june 2021 expiry
     yield Contract("0xea5b9650f6c47D112Bb008132a86388B594Eb849")
+
+
+@pytest.fixture
+def token_vault_registry():
+    yield Contract("0x3269DeB913363eE58E221808661CfDDa9d898127")
 
 
 @pytest.fixture

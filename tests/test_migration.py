@@ -4,6 +4,7 @@
 
 import pytest
 from brownie import Contract
+import brownie
 
 
 def test_migration(
@@ -16,6 +17,7 @@ def test_migration(
     gov,
     user,
     token_vault,
+    token_vault_registry,
     liquitiy_mining,
     comfi,
     RELATIVE_APPROX,
@@ -28,7 +30,7 @@ def test_migration(
 
     # migrate to a new strategy
     new_strategy = strategist.deploy(
-        Strategy, vault, token_vault, liquitiy_mining, comfi
+        Strategy, vault, token_vault, token_vault_registry, liquitiy_mining, comfi
     )
     strategy.migrate(new_strategy.address, {"from": gov})
     assert (
@@ -53,3 +55,19 @@ def test_token_vault_migration(
     assert pytest.approx(strategy.estimatedTotalAssets(), rel=RELATIVE_APPROX) == amount
     strategy.harvest()
     assert pytest.approx(strategy.estimatedTotalAssets(), rel=RELATIVE_APPROX) == amount
+
+
+def test_token_invalid_vault_migration(
+    token, vault, strategy, amount, Strategy, strategist, gov, user, RELATIVE_APPROX
+):
+    # Deposit to the vault and harvest
+    token.approve(vault.address, amount, {"from": user})
+    vault.deposit(amount, {"from": user})
+    strategy.harvest()
+    assert pytest.approx(strategy.estimatedTotalAssets(), rel=RELATIVE_APPROX) == amount
+
+    invalid_token_vault = Contract("0x11111112542D85B3EF69AE05771c2dCCff4fAa26")
+
+    # migrate to a new token vault
+    with brownie.reverts():
+        strategy.migrateTokenVault(invalid_token_vault, {"from": gov})
