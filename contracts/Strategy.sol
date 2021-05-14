@@ -37,6 +37,9 @@ contract Strategy is BaseStrategy {
     ILiquidityMining public liquidityMining;
     IERC20 public comfi;
 
+    // Path for swaps
+    address[] private path;
+
     address private constant router =
         address(0x7a250d5630B4cF539739dF2C5dAcb4c659F2488D);
     address private constant weth =
@@ -69,7 +72,7 @@ contract Strategy is BaseStrategy {
         address _liquidityMining,
         address _comfi
     ) external {
-        //note: initialise can only be called once. in _initialize in BaseStrategy we have: require(address(want) == address(0), "Strategy already initialized");
+        //note: initialise can only be called once.
         _initialize(_vault, _strategist, _rewards, _keeper);
         _initializeStrat(
             _tokenVault,
@@ -125,6 +128,12 @@ contract Strategy is BaseStrategy {
 
         comfi.safeApprove(router, type(uint256).max);
         _approveSpend(type(uint256).max);
+
+        // Initialize the swap path
+        path = new address[](3);
+        path[0] = address(comfi);
+        path[1] = weth;
+        path[2] = address(want);
     }
 
     function cloneStrategy(
@@ -426,21 +435,15 @@ contract Strategy is BaseStrategy {
 
     //sell all function
     function _sell() internal {
-        uint256 rewardBal = comfi.balanceOf(address(this));
-        if (rewardBal == 0) {
+        uint256 comfiBal = comfi.balanceOf(address(this));
+        if (comfiBal == 0) {
             return;
         }
 
-        address[] memory tpath = new address[](3);
-
-        tpath[0] = address(comfi);
-        tpath[1] = weth;
-        tpath[2] = address(want);
-
         IUniswapV2Router02(router).swapExactTokensForTokens(
-            rewardBal,
+            comfiBal,
             uint256(0),
-            tpath,
+            path,
             address(this),
             now
         );
