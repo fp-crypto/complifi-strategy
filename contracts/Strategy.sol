@@ -310,7 +310,9 @@ contract Strategy is BaseStrategy {
 
         uint256 wantBalance = want.balanceOf(address(this));
 
-        if (wantBalance > 0) {
+        if (
+            wantBalance > 0 && tokenVault.state() == IComplifiVault.State.Live
+        ) {
             // When we mint we get 1 primary and 1 complement token for every 2 wants
             tokenVault.mint(wantBalance);
 
@@ -342,22 +344,33 @@ contract Strategy is BaseStrategy {
                 liquidityMining
                     .userPoolInfo(primTokenPid, address(this))
                     .amount;
-            uint256 compDesposited =
+            uint256 compDeposited =
                 liquidityMining
                     .userPoolInfo(compTokenPid, address(this))
                     .amount;
-            uint256 deposited = primDeposited.add(compDesposited);
+            uint256 deposited = primDeposited.add(compDeposited);
 
             if (deposited < amountToFree) {
                 amountToFree = deposited;
             }
             if (deposited > 0) {
-                // Claim rewards before withdrawing
-                liquidityMining.claim();
-                // We claim half the amounted needed from each pool
+                // We withdraw half the amounted needed from each pool
                 // As 1 primary and 1 complement can withdraw 2 want
-                liquidityMining.withdraw(primTokenPid, amountToFree.div(2));
-                liquidityMining.withdraw(compTokenPid, amountToFree.div(2));
+                uint256 tokensToFree = amountToFree.div(2);
+
+                // Avoid floor rounding issues
+                while (tokensToFree.mul(2) < amountToFree) {
+                    tokensToFree++;
+                }
+
+                liquidityMining.withdraw(
+                    primTokenPid,
+                    Math.min(primDeposited, tokensToFree)
+                );
+                liquidityMining.withdraw(
+                    compTokenPid,
+                    Math.min(compDeposited, tokensToFree)
+                );
 
                 uint256 primBalance = primaryToken().balanceOf(address(this));
                 uint256 compBalance =
@@ -367,13 +380,9 @@ contract Strategy is BaseStrategy {
                 // but better safe than sorry
                 if (primBalance > 0 && compBalance > 0) {
                     if (primBalance <= compBalance) {
-                        tokenVault.refund(
-                            Math.min(primBalance, amountToFree.div(2))
-                        );
+                        tokenVault.refund(Math.min(primBalance, tokensToFree));
                     } else {
-                        tokenVault.refund(
-                            Math.min(compBalance, amountToFree.div(2))
-                        );
+                        tokenVault.refund(Math.min(compBalance, tokensToFree));
                     }
                 }
             }
