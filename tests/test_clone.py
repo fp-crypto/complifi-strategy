@@ -16,7 +16,7 @@ def test_clone(
     vault,
     token_vault,
     token_vault_registry,
-    liquitiy_mining,
+    liquidity_mining,
     comfi,
     user,
     amount,
@@ -30,7 +30,7 @@ def test_clone(
             keeper,
             token_vault,
             token_vault_registry,
-            liquitiy_mining,
+            liquidity_mining,
             comfi,
             {"from": gov},
         )
@@ -43,7 +43,7 @@ def test_clone(
         keeper,
         token_vault,
         token_vault_registry,
-        liquitiy_mining,
+        liquidity_mining,
         comfi,
         {"from": gov},
     )
@@ -58,7 +58,7 @@ def test_clone(
             keeper,
             token_vault,
             token_vault_registry,
-            liquitiy_mining,
+            liquidity_mining,
             comfi,
             {"from": gov},
         )

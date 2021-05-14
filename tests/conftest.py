@@ -86,11 +86,11 @@ def strategy(
     gov,
     token_vault,
     token_vault_registry,
-    liquitiy_mining,
+    liquidity_mining,
     comfi,
 ):
     strategy = strategist.deploy(
-        Strategy, vault, token_vault, token_vault_registry, liquitiy_mining, comfi
+        Strategy, vault, token_vault, token_vault_registry, liquidity_mining, comfi
     )
     strategy.setKeeper(keeper)
     vault.addStrategy(strategy, 10_000, 0, 1_000, {"from": gov})
@@ -115,11 +115,11 @@ def comfi():
 
 @pytest.fixture
 def comfi_whale(accounts):
-    yield accounts.at("0x0FB21490A878AA2Af08117C96F897095797bD91C")
+    yield accounts.at("0x0FB21490A878AA2Af08117C96F897095797bD91C", force=True)
 
 
 @pytest.fixture
-def liquitiy_mining():
+def liquidity_mining():
     yield Contract("0x8a5827Ad1f28d3f397B748CE89895e437b8ef90D")
 
 

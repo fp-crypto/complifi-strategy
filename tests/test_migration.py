@@ -18,7 +18,7 @@ def test_migration(
     user,
     token_vault,
     token_vault_registry,
-    liquitiy_mining,
+    liquidity_mining,
     comfi,
     RELATIVE_APPROX,
 ):
@@ -30,7 +30,7 @@ def test_migration(
 
     # migrate to a new strategy
     new_strategy = strategist.deploy(
-        Strategy, vault, token_vault, token_vault_registry, liquitiy_mining, comfi
+        Strategy, vault, token_vault, token_vault_registry, liquidity_mining, comfi
     )
     strategy.migrate(new_strategy.address, {"from": gov})
     assert (

@@ -15,7 +15,7 @@ def test_operation(
     keeper,
     token_vault,
     token_vault_registry,
-    liquitiy_mining,
+    liquidity_mining,
     comfi,
     gov,
     RELATIVE_APPROX,
@@ -29,7 +29,7 @@ def test_operation(
             keeper,
             token_vault,
             token_vault_registry,
-            liquitiy_mining,
+            liquidity_mining,
             comfi,
             {"from": gov},
         )
@@ -95,7 +95,7 @@ def test_profitable_harvest(
     chain.sleep(3600 * 6)  # 6 hrs needed for profits to unlock
     chain.mine(1)
     profit = token.balanceOf(vault.address)  # Profits go to vault
-    # TODO: Uncomment the lines below
+
     assert strategy.estimatedTotalAssets() + profit > amount
     assert vault.pricePerShare() > before_pps
     print(vault.pricePerShare())
@@ -113,8 +113,6 @@ def test_profitable_with_withdraw(
     # Harvest 1: Send funds through the strategy
     strategy.harvest()
     assert pytest.approx(strategy.estimatedTotalAssets(), rel=RELATIVE_APPROX) == amount
-
-    # TODO: Add some code before harvest #2 to simulate earning yield
 
     print("mining ...")
     hours = 1
@@ -149,10 +147,12 @@ def test_long_runtime(
     chain,
     comfi,
     comfi_whale,
-    liquitiy_mining,
+    liquidity_mining,
 ):
     # Make sure LM is stocked
-    comfi.transfer(liquitiy_mining, 100_000 * 10 ** 18, {"from": comfi_whale})
+    comfi.transfer(
+        liquidity_mining, comfi.balanceOf(comfi_whale), {"from": comfi_whale}
+    )
 
     # Deposit to the vault
     token.approve(vault.address, amount, {"from": user})
@@ -163,10 +163,8 @@ def test_long_runtime(
     strategy.harvest()
     assert pytest.approx(strategy.estimatedTotalAssets(), rel=RELATIVE_APPROX) == amount
 
-    # TODO: Add some code before harvest #2 to simulate earning yield
-
     print("mining ...")
-    hours = 24 * 15
+    hours = 24 * 3
     chain.sleep(3600 * hours)
     chain.mine(269 * hours)
 
@@ -177,7 +175,7 @@ def test_long_runtime(
     chain.sleep(3600 * 6)  # 6 hrs needed for profits to unlock
     chain.mine(1)
     profit = token.balanceOf(vault.address)  # Profits go to vault
-    # TODO: Uncomment the lines below
+
     assert strategy.estimatedTotalAssets() + profit > amount
     assert vault.pricePerShare() > before_pps
     print(vault.pricePerShare())
@@ -216,8 +214,6 @@ def test_sweep(gov, vault, strategy, token, user, amount, weth, weth_amout):
     with brownie.reverts("!shares"):
         strategy.sweep(vault.address, {"from": gov})
 
-    # TODO: If you add protected tokens to the strategy.
-    # Protected token doesn't work
     # with brownie.reverts("!protected"):
     #     strategy.sweep(strategy.protectedToken(), {"from": gov})
 
