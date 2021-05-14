@@ -223,7 +223,7 @@ contract Strategy is BaseStrategy {
     }
 
     function pendingRewards()
-        public
+        external
         view
         returns (uint256 _total, uint256 _unlocked)
     {
@@ -275,7 +275,7 @@ contract Strategy is BaseStrategy {
 
         if (assets >= debt) {
             _debtPayment = _debtOutstanding;
-            _profit = assets - debt;
+            _profit = assets.sub(debt);
 
             uint256 amountToFree = _profit.add(_debtPayment);
 
@@ -291,7 +291,7 @@ contract Strategy is BaseStrategy {
                         _debtPayment = 0;
                     } else {
                         _debtPayment = Math.min(
-                            newLoose - _profit,
+                            newLoose.sub(_profit),
                             _debtPayment
                         );
                     }
@@ -299,7 +299,7 @@ contract Strategy is BaseStrategy {
             }
         } else {
             //serious loss should never happen but if it does lets record it accurately
-            _loss = debt - assets;
+            _loss = debt.sub(assets);
         }
     }
 
