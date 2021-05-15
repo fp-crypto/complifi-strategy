@@ -87,11 +87,9 @@ def test_profitable_harvest(
     chain.mine(269 * hours)
 
     before_pps = vault.pricePerShare()
-    print(strategy.pendingRewards())
 
     # Harvest 2: Realize profit
     strategy.harvest()
-    print(strategy.pendingRewards())
     chain.sleep(3600 * 6)  # 6 hrs needed for profits to unlock
     chain.mine(1)
     profit = token.balanceOf(vault.address)  # Profits go to vault
@@ -99,7 +97,6 @@ def test_profitable_harvest(
     assert strategy.estimatedTotalAssets() + profit > amount
     assert vault.pricePerShare() > before_pps
     print(vault.pricePerShare())
-    print(strategy.pendingRewards())
 
 
 def test_profitable_with_withdraw(

@@ -6,11 +6,7 @@ pragma solidity 0.6.12;
 pragma experimental ABIEncoderV2;
 
 // These are the core Yearn libraries
-import {
-    BaseStrategy,
-    StrategyParams,
-    VaultAPI
-} from "@yearnvaults/contracts/BaseStrategy.sol";
+import {BaseStrategy, VaultAPI} from "@yearnvaults/contracts/BaseStrategy.sol";
 import {
     SafeERC20,
     SafeMath,
@@ -33,17 +29,16 @@ contract Strategy is BaseStrategy {
     using SafeMath for uint256;
 
     IComplifiVault public tokenVault;
-    IComplifiVaultRegistry public tokenVaultRegistry;
-    ILiquidityMining public liquidityMining;
-    IERC20 public comfi;
+    IComplifiVaultRegistry private tokenVaultRegistry;
+    ILiquidityMining private liquidityMining;
+    IERC20 private comfi;
 
     // Path for swaps
     address[] private path;
 
     address private constant router =
-        address(0x7a250d5630B4cF539739dF2C5dAcb4c659F2488D);
-    address private constant weth =
-        address(0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2);
+        0x7a250d5630B4cF539739dF2C5dAcb4c659F2488D;
+    address private constant weth = 0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2;
 
     event Cloned(address indexed clone);
 
@@ -111,11 +106,6 @@ contract Strategy is BaseStrategy {
         address _liquidityMining,
         address _comfi
     ) internal {
-        require(
-            address(tokenVault) == address(0),
-            "Strategy already initialized"
-        );
-
         tokenVaultRegistry = IComplifiVaultRegistry(_tokenVaultRegistry);
         require(
             _isRegisteredTokenVault(_tokenVault),
@@ -134,25 +124,6 @@ contract Strategy is BaseStrategy {
         path[0] = address(comfi);
         path[1] = weth;
         path[2] = address(want);
-    }
-
-    function cloneStrategy(
-        address _vault,
-        address _tokenVault,
-        address _tokenVaultRegistry,
-        address _liquidityMining,
-        address _comfi
-    ) external returns (address newStrategy) {
-        newStrategy = this.cloneStrategy(
-            _vault,
-            msg.sender,
-            msg.sender,
-            msg.sender,
-            _tokenVault,
-            _tokenVaultRegistry,
-            _liquidityMining,
-            _comfi
-        );
     }
 
     function cloneStrategy(
@@ -220,24 +191,6 @@ contract Strategy is BaseStrategy {
 
         return
             want.balanceOf(address(this)).add(looseTokens).add(depositedTokens);
-    }
-
-    function pendingRewards()
-        external
-        view
-        returns (uint256 _total, uint256 _unlocked)
-    {
-        (uint256 primaryTotal, uint256 primaryUnlocked) =
-            liquidityMining.getPendingReward(primaryTokenPid(), address(this));
-
-        (uint256 complementTotal, uint256 complementUnlocked) =
-            liquidityMining.getPendingReward(
-                complementTokenPid(),
-                address(this)
-            );
-
-        _total = primaryTotal.add(complementTotal);
-        _unlocked = primaryUnlocked.add(complementUnlocked);
     }
 
     function primaryToken() private view returns (IERC20) {
