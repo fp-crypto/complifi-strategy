@@ -4,8 +4,36 @@ import pytest
 
 
 def test_operation(
-    accounts, token, vault, strategy, user, strategist, amount, RELATIVE_APPROX
+    accounts,
+    token,
+    vault,
+    strategy,
+    user,
+    strategist,
+    amount,
+    rewards,
+    keeper,
+    token_vault,
+    token_vault_registry,
+    liquidity_mining,
+    comfi,
+    gov,
+    RELATIVE_APPROX,
 ):
+    # Shouldn't be able to call initialize again
+    with brownie.reverts():
+        strategy.initialize(
+            vault,
+            strategist,
+            rewards,
+            keeper,
+            token_vault,
+            token_vault_registry,
+            liquidity_mining,
+            comfi,
+            {"from": gov},
+        )
+
     # Deposit to the vault
     user_balance_before = token.balanceOf(user)
     token.approve(vault.address, amount, {"from": user})
@@ -53,7 +81,44 @@ def test_profitable_harvest(
     strategy.harvest()
     assert pytest.approx(strategy.estimatedTotalAssets(), rel=RELATIVE_APPROX) == amount
 
-    # TODO: Add some code before harvest #2 to simulate earning yield
+    print("mining ...")
+    hours = 1
+    chain.sleep(3600 * hours)
+    chain.mine(269 * hours)
+
+    before_pps = vault.pricePerShare()
+
+    # Harvest 2: Realize profit
+    strategy.harvest()
+    chain.sleep(3600 * 6)  # 6 hrs needed for profits to unlock
+    chain.mine(1)
+    profit = token.balanceOf(vault.address)  # Profits go to vault
+
+    assert strategy.estimatedTotalAssets() + profit > amount
+    assert vault.pricePerShare() > before_pps
+    print(vault.pricePerShare())
+
+
+def test_profitable_with_withdraw(
+    accounts, token, vault, strategy, user, strategist, amount, RELATIVE_APPROX, chain
+):
+    # Deposit to the vault
+    token.approve(vault.address, amount, {"from": user})
+    vault.deposit(amount, {"from": user})
+    assert token.balanceOf(vault.address) == amount
+
+    # Harvest 1: Send funds through the strategy
+    strategy.harvest()
+    assert pytest.approx(strategy.estimatedTotalAssets(), rel=RELATIVE_APPROX) == amount
+
+    print("mining ...")
+    hours = 1
+    chain.sleep(3600 * hours)
+    chain.mine(269 * hours)
+
+    vault.withdraw(amount / 2, {"from": user})
+
+    before_pps = vault.pricePerShare()
 
     # Harvest 2: Realize profit
     strategy.harvest()
@@ -61,8 +126,56 @@ def test_profitable_harvest(
     chain.mine(1)
     profit = token.balanceOf(vault.address)  # Profits go to vault
     # TODO: Uncomment the lines below
-    # assert token.balanceOf(strategy) + profit > amount
-    # assert vault.pricePerShare() > before_pps
+    assert strategy.estimatedTotalAssets() + profit > amount / 2
+    assert vault.pricePerShare() > before_pps
+    print(vault.pricePerShare())
+
+
+@pytest.mark.skip(reason="long test")
+def test_long_runtime(
+    accounts,
+    token,
+    vault,
+    strategy,
+    user,
+    strategist,
+    amount,
+    RELATIVE_APPROX,
+    chain,
+    comfi,
+    comfi_whale,
+    liquidity_mining,
+):
+    # Make sure LM is stocked
+    comfi.transfer(
+        liquidity_mining, comfi.balanceOf(comfi_whale), {"from": comfi_whale}
+    )
+
+    # Deposit to the vault
+    token.approve(vault.address, amount, {"from": user})
+    vault.deposit(amount, {"from": user})
+    assert token.balanceOf(vault.address) == amount
+
+    # Harvest 1: Send funds through the strategy
+    strategy.harvest()
+    assert pytest.approx(strategy.estimatedTotalAssets(), rel=RELATIVE_APPROX) == amount
+
+    print("mining ...")
+    hours = 24 * 3
+    chain.sleep(3600 * hours)
+    chain.mine(269 * hours)
+
+    before_pps = vault.pricePerShare()
+
+    # Harvest 2: Realize profit
+    strategy.harvest()
+    chain.sleep(3600 * 6)  # 6 hrs needed for profits to unlock
+    chain.mine(1)
+    profit = token.balanceOf(vault.address)  # Profits go to vault
+
+    assert strategy.estimatedTotalAssets() + profit > amount
+    assert vault.pricePerShare() > before_pps
+    print(vault.pricePerShare())
 
 
 def test_change_debt(
@@ -81,11 +194,9 @@ def test_change_debt(
     strategy.harvest()
     assert pytest.approx(strategy.estimatedTotalAssets(), rel=RELATIVE_APPROX) == amount
 
-    # In order to pass this tests, you will need to implement prepareReturn.
-    # TODO: uncomment the following lines.
-    # vault.updateStrategyDebtRatio(strategy.address, 5_000, {"from": gov})
-    # strategy.harvest()
-    # assert pytest.approx(strategy.estimatedTotalAssets(), rel=RELATIVE_APPROX) == half
+    vault.updateStrategyDebtRatio(strategy.address, 5_000, {"from": gov})
+    strategy.harvest()
+    assert pytest.approx(strategy.estimatedTotalAssets(), rel=RELATIVE_APPROX) == half
 
 
 def test_sweep(gov, vault, strategy, token, user, amount, weth, weth_amout):
@@ -100,8 +211,6 @@ def test_sweep(gov, vault, strategy, token, user, amount, weth, weth_amout):
     with brownie.reverts("!shares"):
         strategy.sweep(vault.address, {"from": gov})
 
-    # TODO: If you add protected tokens to the strategy.
-    # Protected token doesn't work
     # with brownie.reverts("!protected"):
     #     strategy.sweep(strategy.protectedToken(), {"from": gov})
 

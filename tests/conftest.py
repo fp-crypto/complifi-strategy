@@ -40,16 +40,16 @@ def keeper(accounts):
 
 @pytest.fixture
 def token():
-    token_address = "0x6b175474e89094c44da98b954eedeac495271d0f"  # this should be the address of the ERC-20 used by the strategy/vault (DAI)
+    token_address = "0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48"  # this should be the address of the ERC-20 used by the strategy/vault (DAI)
     yield Contract(token_address)
 
 
 @pytest.fixture
 def amount(accounts, token, user):
-    amount = 10_000 * 10 ** token.decimals()
+    amount = 5_000_000 * 10 ** token.decimals()
     # In order to get some funds for the token you are about to use,
     # it impersonate an exchange address to use it's funds.
-    reserve = accounts.at("0xd551234ae421e3bcba99a0da6d736074f22192ff", force=True)
+    reserve = accounts.at("0x47ac0Fb4F2D84898e4D9E7b4DaB3C24507a6D503", True)
     token.transfer(user, amount, {"from": reserve})
     yield amount
 
@@ -78,11 +78,49 @@ def vault(pm, gov, rewards, guardian, management, token):
 
 
 @pytest.fixture
-def strategy(strategist, keeper, vault, Strategy, gov):
-    strategy = strategist.deploy(Strategy, vault)
+def strategy(
+    strategist,
+    keeper,
+    vault,
+    Strategy,
+    gov,
+    token_vault,
+    token_vault_registry,
+    liquidity_mining,
+    comfi,
+):
+    strategy = strategist.deploy(
+        Strategy, vault, token_vault, token_vault_registry, liquidity_mining, comfi
+    )
     strategy.setKeeper(keeper)
-    vault.addStrategy(strategy, 10_000, 0, 2 ** 256 - 1, 1_000, {"from": gov})
+    vault.addStrategy(strategy, 10_000, 0, 1_000, {"from": gov})
     yield strategy
+
+
+@pytest.fixture
+def token_vault():
+    # 5x eth 1 june 2021 expiry
+    yield Contract("0xea5b9650f6c47D112Bb008132a86388B594Eb849")
+
+
+@pytest.fixture
+def token_vault_registry():
+    yield Contract("0x3269DeB913363eE58E221808661CfDDa9d898127")
+
+
+@pytest.fixture
+def comfi():
+    yield Contract("0x752Efadc0a7E05ad1BCCcDA22c141D01a75EF1e4")
+
+
+@pytest.fixture
+def comfi_whale(accounts):
+    yield accounts.at("0x0FB21490A878AA2Af08117C96F897095797bD91C", force=True)
+
+
+@pytest.fixture
+def liquidity_mining():
+    yield Contract("0x8a5827Ad1f28d3f397B748CE89895e437b8ef90D")
 
 
 @pytest.fixture(scope="session")
