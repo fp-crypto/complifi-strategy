@@ -77,29 +77,6 @@ contract Strategy is BaseStrategy {
         );
     }
 
-    function _initialize(
-        address _vault,
-        address _strategist,
-        address _rewards,
-        address _keeper
-    ) internal {
-        require(address(want) == address(0), "Strategy already initialized");
-
-        vault = VaultAPI(_vault);
-        want = IERC20(vault.token());
-        want.safeApprove(_vault, uint256(-1)); // Give Vault unlimited access (might save gas)
-        strategist = _strategist;
-        rewards = _rewards;
-        keeper = _keeper;
-
-        // initialize variables
-        maxReportDelay = 86400;
-        profitFactor = 100;
-        debtThreshold = 0;
-
-        vault.approve(rewards, uint256(-1)); // Allow rewards to be pulled
-    }
-
     function _initializeStrat(
         address _tokenVault,
         address _tokenVaultRegistry,
@@ -346,13 +323,17 @@ contract Strategy is BaseStrategy {
         }
     }
 
+    function liquidateAllPositions() internal override returns (uint256 _amountFreed) {
+        (_amountFreed, ) = liquidatePosition(type(uint256).max);
+    }
+
     function migrateTokenVault(address _newTokenVault) external onlyGovernance {
         require(
             _isRegisteredTokenVault(_newTokenVault),
             "Complifi token vault not registered"
         );
 
-        liquidatePosition(type(uint256).max);
+        liquidateAllPositions();
 
         // Revoke approvals for the old token vault
         _approveSpend(0);
@@ -363,10 +344,7 @@ contract Strategy is BaseStrategy {
         _approveSpend(type(uint256).max);
     }
 
-    function prepareMigration(address _newStrategy) internal override {
-        liquidatePosition(type(uint256).max); //withdraw all. does not matter if we ask for too much
-        comfi.safeTransfer(_newStrategy, comfi.balanceOf(address(this)));
-    }
+    function prepareMigration(address _newStrategy) internal override {}
 
     function emergencyWithdrawal() external onlyAuthorized {
         liquidityMining.withdrawEmergency(primaryTokenPid());
@@ -432,4 +410,8 @@ contract Strategy is BaseStrategy {
         override
         returns (address[] memory)
     {}
+
+    function ethToWant(uint256 _amtInWei) public view override returns (uint256) {
+        return _amtInWei;
+    }
 }
