@@ -1,11 +1,8 @@
 // SPDX-License-Identifier: AGPL-3.0
-// Feel free to change the license, but this is what we use
 
-// Feel free to change this version of Solidity. We support >=0.6.0 <0.7.0;
 pragma solidity 0.6.12;
 pragma experimental ABIEncoderV2;
 
-// These are the core Yearn libraries
 import {BaseStrategy, VaultAPI} from "@yearnvaults/contracts/BaseStrategy.sol";
 import {
     SafeERC20,
@@ -31,14 +28,14 @@ contract Strategy is BaseStrategy {
     IComplifiVault public tokenVault;
     IComplifiVaultRegistry private tokenVaultRegistry;
     ILiquidityMining private liquidityMining;
-    IERC20 private comfi;
 
     // Path for swaps
     address[] private path;
 
     address private constant router =
-        0x7a250d5630B4cF539739dF2C5dAcb4c659F2488D;
-    address private constant weth = 0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2;
+        0x1b02dA8Cb0d097eB8D57A175b88c7D8b47997506;
+    address private constant weth = 0x7ceB23fD6bC0adD59E62ac25578270cFf1b9f619;
+    IERC20 private constant comfi = IERC20(0x72bba3Aa59a1cCB1591D7CDDB714d8e4D5597E96);
 
     event Cloned(address indexed clone);
 
@@ -46,14 +43,12 @@ contract Strategy is BaseStrategy {
         address _vault,
         address _tokenVault,
         address _tokenVaultRegistry,
-        address _liquidityMining,
-        address _comfi
+        address _liquidityMining
     ) public BaseStrategy(_vault) {
         _initializeStrat(
             _tokenVault,
             _tokenVaultRegistry,
-            _liquidityMining,
-            _comfi
+            _liquidityMining
         );
     }
 
@@ -64,24 +59,21 @@ contract Strategy is BaseStrategy {
         address _keeper,
         address _tokenVault,
         address _tokenVaultRegistry,
-        address _liquidityMining,
-        address _comfi
+        address _liquidityMining
     ) external {
         //note: initialise can only be called once.
         _initialize(_vault, _strategist, _rewards, _keeper);
         _initializeStrat(
             _tokenVault,
             _tokenVaultRegistry,
-            _liquidityMining,
-            _comfi
+            _liquidityMining
         );
     }
 
     function _initializeStrat(
         address _tokenVault,
         address _tokenVaultRegistry,
-        address _liquidityMining,
-        address _comfi
+        address _liquidityMining
     ) internal {
         tokenVaultRegistry = IComplifiVaultRegistry(_tokenVaultRegistry);
         require(
@@ -91,7 +83,6 @@ contract Strategy is BaseStrategy {
 
         tokenVault = IComplifiVault(_tokenVault);
         liquidityMining = ILiquidityMining(_liquidityMining);
-        comfi = IERC20(_comfi);
 
         comfi.safeApprove(router, type(uint256).max);
         _approveSpend(type(uint256).max);
@@ -110,8 +101,7 @@ contract Strategy is BaseStrategy {
         address _keeper,
         address _tokenVault,
         address _tokenVaultRegistry,
-        address _liquidityMining,
-        address _comfi
+        address _liquidityMining
     ) external returns (address newStrategy) {
         // Copied from https://github.com/optionality/clone-factory/blob/master/contracts/CloneFactory.sol
         bytes20 addressBytes = bytes20(address(this));
@@ -138,15 +128,13 @@ contract Strategy is BaseStrategy {
             _keeper,
             _tokenVault,
             _tokenVaultRegistry,
-            _liquidityMining,
-            _comfi
+            _liquidityMining
         );
 
         emit Cloned(newStrategy);
     }
 
     function name() external view override returns (string memory) {
-        // Add your own name here, suggestion e.g. "StrategyCreamYFI"
         return "StrategyComplifiUSDC";
     }
 
